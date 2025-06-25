@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sessiz Sinyal Demo Portalı</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #121212;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h1 {
+      font-size: 2rem;
+      color: #4dabf7;
+    }
+    p {
+      max-width: 700px;
+      line-height: 1.6;
+      text-align: center;
+    }
+    iframe {
+      width: 100%;
+      max-width: 800px;
+      height: 600px;
+      border: 2px solid #4dabf7;
+      border-radius: 10px;
+      margin-top: 30px;
+    }
+    .button-group {
+      margin: 20px 0;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    a.button {
+      background-color: #4dabf7;
+      padding: 12px 24px;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+    a.button:hover {
+      background-color: #1a73e8;
+    }
+    footer {
+      margin-top: 40px;
+      font-size: 0.9rem;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧠 Sessiz Sinyal Uygulaması</h1>
+    <p>
+      Bu portal, çalışanların bilinç düzeylerini tıklama davranışlarına göre analiz eden ve yapay zekâ destekli olarak sınıflandıran
+      "Sessiz Sinyal" uygulamasının canlı demo alanıdır.
+    </p>
+  </header>
+
+  <div class="button-group">
+    <a class="button" href="SessizSinyal_SirketSunumu.docx" download>📄 Şirket Sunumu (DOCX)</a>
+    <a class="button" href="SessizSinyal_KurumsalKullanimKlavuzu.docx" download>📘 Kurumsal Kılavuz (DOCX)</a>
+  </div>
+
+  <iframe src="demo.html" title="Sessiz Sinyal Demo"></iframe>
+
+  <footer>
+    Demo portalı &copy; 2025 | Hazırlayan: Seyhan | İletişim: info@seyhan.com
+  </footer>
+</body>
+</html>
