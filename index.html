@@ -6,104 +6,97 @@
   <title>Sessiz Sinyal Gönder</title>
   <style>
     body {
-      background-color: #0d1b2a;
       font-family: 'Segoe UI', sans-serif;
-      color: white;
+      background-color: #0b1120;
+      color: #fff;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
-      margin: 0;
+      padding: 2rem;
     }
     .container {
-      background: #1b263b;
-      padding: 20px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+      background-color: #1e293b;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      width: 100%;
+      max-width: 500px;
     }
-    h2 {
+    h1 {
       text-align: center;
-      margin-bottom: 20px;
+      color: #38bdf8;
     }
     label {
       display: block;
-      margin-top: 10px;
-      font-weight: bold;
+      margin-top: 1rem;
+      margin-bottom: 0.3rem;
     }
     input, textarea {
       width: 100%;
-      padding: 10px;
-      margin-top: 5px;
+      padding: 0.75rem;
       border: none;
-      border-radius: 8px;
-      font-size: 1em;
+      border-radius: 0.5rem;
+      font-size: 1rem;
     }
     button {
-      margin-top: 15px;
+      margin-top: 1.5rem;
       width: 100%;
-      padding: 10px;
-      background: #00b894;
+      padding: 0.75rem;
+      background-color: #10b981;
       color: white;
       border: none;
-      font-size: 1.1em;
-      border-radius: 8px;
+      border-radius: 0.5rem;
+      font-size: 1rem;
       cursor: pointer;
     }
-    .success, .error {
-      margin-top: 10px;
-      text-align: center;
+    button:hover {
+      background-color: #059669;
+    }
+    #response {
+      margin-top: 1rem;
       font-weight: bold;
     }
-    .success { color: #00ff88; }
-    .error { color: #ff7675; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>📡 Sessiz Sinyal Gönder</h2>
-    <label for="adSoyad">Ad Soyad</label>
-    <input type="text" id="adSoyad" placeholder="Adınız Soyadınız" />
-
-    <label for="mesaj">Mesajınız</label>
-    <textarea id="mesaj" placeholder="Mesajınızı yazın..." rows="4"></textarea>
-
-    <button onclick="gonder()">Gönder</button>
-
-    <div id="mesajSonucu"></div>
+    <h1>📡 Sessiz Sinyal Gönder</h1>
+    <form id="signalForm">
+      <label for="name">Ad Soyad</label>
+      <input type="text" id="name" required value="Seyhan Çınar" />
+      <label for="message">Mesajınız</label>
+      <textarea id="message" rows="4" required>Merhaba Seyhan</textarea>
+      <button type="submit">Gönder</button>
+    </form>
+    <div id="response"></div>
   </div>
 
   <script>
-    async function gonder() {
-      const adSoyad = document.getElementById("adSoyad").value.trim();
-      const mesaj = document.getElementById("mesaj").value.trim();
-      const sonuc = document.getElementById("mesajSonucu");
-      sonuc.innerHTML = "";
-
-      if (!adSoyad || !mesaj) {
-        sonuc.innerHTML = "<div class='error'>Lütfen tüm alanları doldurun.</div>";
-        return;
-      }
+    document.getElementById("signalForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value;
+      const message = document.getElementById("message").value;
+      const responseDiv = document.getElementById("response");
 
       try {
-        const response = await fetch("https://sessiz-sinyal.onrender.com/api/signal", {
+        const response = await fetch("https://sessiz-sinyal.onrender.com/api/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: adSoyad, message: mesaj })
+          body: JSON.stringify({ name, message })
         });
 
+        const result = await response.json();
+
         if (response.ok) {
-          sonuc.innerHTML = "<div class='success'>✅ Sinyal başarıyla gönderildi!</div>";
-          document.getElementById("adSoyad").value = "";
-          document.getElementById("mesaj").value = "";
+          responseDiv.innerHTML = `<span style="color: lightgreen;">✅ ${result.message}</span>`;
+          alert("Sinyal başarıyla gönderildi!");
         } else {
-          throw new Error("Sunucu hatası");
+          responseDiv.innerHTML = `<span style="color: red;">❌ Hata: ${result.message}</span>`;
         }
-      } catch (err) {
-        sonuc.innerHTML = "<div class='error'>❌ Hata oluştu. Lütfen tekrar deneyin.</div>";
+      } catch (error) {
+        responseDiv.innerHTML = `<span style="color: red;">❌ Sunucuya ulaşılamıyor.</span>`;
       }
-    }
+    });
   </script>
 </body>
 </html>
