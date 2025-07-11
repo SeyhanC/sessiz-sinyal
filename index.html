@@ -1,77 +1,211 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>📡 Sessiz Sinyal Gönder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sessiz Sinyal MVP</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
   <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #0e0e20;
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+    :root {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --text: #eee;
+      --btn: #0a84ff;
+      --bpm: #ff4d4d;
     }
-    .form-container {
-      background: #1a1a2e;
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: var(--card);
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-      width: 90%;
-      max-width: 400px;
-    }
-    h2 {
-      text-align: center;
-      color: #4fc3f7;
-    }
-    label {
-      display: block;
-      margin: 12px 0 6px;
-      color: #ccc;
-    }
-    input, textarea {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      font-size: 1em;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      max-width: 500px;
+      margin: auto;
     }
     button {
-      background: #26a69a;
-      color: #fff;
+      margin: 10px;
+      padding: 10px 20px;
       border: none;
-      padding: 12px;
       border-radius: 6px;
-      width: 100%;
+      background-color: var(--btn);
+      color: white;
       font-size: 1em;
       cursor: pointer;
     }
-    .status {
+    canvas {
+      margin-top: 30px;
+    }
+    video {
+      display: none;
+      width: 200px;
+      margin-top: 20px;
+      border-radius: 10px;
+    }
+    .bpm-display {
       margin-top: 10px;
-      text-align: center;
       font-weight: bold;
+      color: var(--bpm);
+    }
+    input[type="text"] {
+      padding: 8px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: 80%;
     }
   </style>
 </head>
 <body>
-  <div class="form-container">
-    <h2>📡 Sessiz Sinyal Gönder</h2>
-    <form id="sinyalForm">
-      <label for="name">Ad Soyad</label>
-      <input type="text" id="name" required />
-
-      <label for="message">Mesajınız</label>
-      <textarea id="message" rows="4" required></textarea>
-
-      <button type="submit">Gönder</button>
-      <div class="status" id="status"></div>
-    </form>
+  <div class="card">
+    <h2>Sessiz Sinyal Demo</h2>
+    <input type="text" id="username" placeholder="Adınızı girin...">
+    <br>
+    <button onclick="startSession()">Başlat</button>
+    <button onclick="showData()">Veriyi Göster</button>
+    <button onclick="analyze()">Analiz Et</button>
+    <button onclick="startPulseDetection()">Nabzı Başlat</button>
+    <button onclick="exportData()">Veriyi Dışa Aktar</button>
+    <button onclick="sendToServer()">Sunucuya Gönder</button>
+    <div class="bpm-display" id="bpmDisplay">Nabız: --</div>
+    <video id="video" autoplay muted></video>
+    <canvas id="chart" width="400" height="200"></canvas>
   </div>
 
-  <script src="app.js"></script>
+  <script>
+    let data = [];
+    let startTime;
+    let clickCount = 0;
+
+    function startSession() {
+      const user = document.getElementById('username').value || 'anonim';
+      startTime = Date.now();
+      document.body.addEventListener('click', recordSignal);
+      alert(user + " oturumu başlattı. Ekrana rastgele tıklayın.");
+    }
+
+    function recordSignal(e) {
+      const delay = Date.now() - startTime;
+      const x = e.clientX;
+      const y = e.clientY;
+      clickCount++;
+      data.push({ x: delay / 1000, y: Math.random() * 100, xPos: x, yPos: y, clickCount });
+      localStorage.setItem('sessizData', btoa(JSON.stringify(data)));
+    }
+
+    function showData() {
+      const stored = JSON.parse(atob(localStorage.getItem('sessizData') || 'W10='));
+      alert(`Toplam veri: ${stored.length} adet sinyal kaydedildi.`);
+    }
+
+    function analyze() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      const stored = JSON.parse(atob(localStorage.getItem('sessizData') || 'W10='));
+
+      const xs = stored.map(d => d.x);
+      const ys = stored.map(d => d.y);
+
+      const xsTensor = tf.tensor(xs);
+      const ysTensor = tf.tensor(ys);
+
+      const model = tf.sequential();
+      model.add(tf.layers.dense({ inputShape: [1], units: 8, activation: 'relu' }));
+      model.add(tf.layers.dense({ units: 1 }));
+      model.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
+
+      model.fit(xsTensor.reshape([-1,1]), ysTensor.reshape([-1,1]), { epochs: 10 }).then(() => {
+        const predicted = xs.map(x => model.predict(tf.tensor([x])).dataSync()[0]);
+
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: xs,
+            datasets: [
+              { label: 'Gerçek Veri', data: ys, borderColor: '#0a84ff', fill: false },
+              { label: 'AI Tahmini', data: predicted, borderColor: 'orange', borderDash: [5,5], fill: false }
+            ]
+          },
+          options: {
+            scales: {
+              x: { title: { display: true, text: 'Süre (sn)' } },
+              y: { title: { display: true, text: 'Seviye' }, min: 0, max: 100 }
+            }
+          }
+        });
+      });
+    }
+
+    async function startPulseDetection() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
+        video.play();
+        bpmDisplay.innerText = "Nabız ölçülüyor...";
+
+        let ctx = document.createElement('canvas').getContext('2d');
+        let prevRed = 0, beats = 0;
+        let startTime = Date.now();
+
+        const interval = setInterval(() => {
+          ctx.drawImage(video, 0, 0, 50, 50);
+          let frame = ctx.getImageData(0, 0, 50, 50);
+          let totalRed = 0;
+          for (let i = 0; i < frame.data.length; i += 4) {
+            totalRed += frame.data[i];
+          }
+          let avgRed = totalRed / (frame.data.length / 4);
+
+          if (avgRed > prevRed + 2) beats++;
+          prevRed = avgRed;
+
+          let elapsed = (Date.now() - startTime) / 1000;
+          if (elapsed >= 10) {
+            let bpm = Math.round((beats / elapsed) * 60);
+            bpmDisplay.innerText = `Nabız: ${bpm} bpm`;
+            data.push({ x: elapsed, y: bpm, bpm });
+            localStorage.setItem('sessizData', btoa(JSON.stringify(data)));
+            clearInterval(interval);
+          }
+        }, 200);
+
+      } catch (err) {
+        bpmDisplay.innerText = "Kamera erişimi reddedildi.";
+        console.error(err);
+      }
+    }
+
+    function exportData() {
+      const stored = atob(localStorage.getItem('sessizData') || 'W10=');
+      const blob = new Blob([stored], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sessiz_sinyal_verisi.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function sendToServer() {
+      const username = document.getElementById('username').value || 'anonim';
+      const encoded = localStorage.getItem('sessizData');
+      const decoded = JSON.parse(atob(encoded || 'W10='));
+
+      fetch('https://sessiz-sinyal.onrender.com/api/sinyal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, signals: decoded })
+      })
+      .then(res => res.json())
+      .then(response => alert('Veri başarıyla sunucuya gönderildi.'))
+      .catch(err => alert('Sunucuya gönderim hatası: ' + err));
+    }
+  </script>
 </body>
 </html>
