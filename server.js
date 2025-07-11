@@ -1,44 +1,33 @@
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-require('dotenv').config();
+
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+require("dotenv").config();
 
 const app = express();
-const port = process.env.PORT || 3000;
-
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Bağlantısı Başarılı"))
-  .catch(err => console.log("MongoDB Hatası:", err));
+const messages = [];
 
-const { Schema, model } = require('mongoose');
-const sinyalSchema = new Schema({
-  adSoyad: String,
-  mesaj: String,
-  tarih: { type: Date, default: Date.now }
-});
-const Sinyal = model('Sinyal', sinyalSchema);
+app.post("/api/messages", (req, res) => {
+  const { name, message } = req.body;
 
-app.post('/api/sinyal', async (req, res) => {
-  try {
-    const yeniSinyal = new Sinyal({
-      adSoyad: req.body.adSoyad,
-      mesaj: req.body.mesaj
-    });
-    await yeniSinyal.save();
-    res.status(200).json({ mesaj: 'Sinyal başarıyla kaydedildi' });
-  } catch (err) {
-    console.error('Kayıt hatası:', err);
-    res.status(500).json({ hata: 'Sunucu hatası' });
+  if (!name || !message) {
+    return res.status(400).json({ message: "Ad ve mesaj gereklidir." });
   }
+
+  const newMessage = { name, message, date: new Date() };
+  messages.push(newMessage);
+
+  return res.status(200).json({ message: "Mesaj başarıyla gönderildi!" });
 });
 
-app.get('/', (req, res) => {
-  res.send("Sessiz Sinyal API çalışıyor 🎉");
+app.get("/", (req, res) => {
+  res.send("Sessiz Sinyal API çalışıyor");
 });
 
-app.listen(port, () => {
-  console.log(`Sunucu çalışıyor: http://localhost:${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
