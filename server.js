@@ -4,7 +4,21 @@ const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const app = express();
-app.use(cors());
+
+// Genişletilmiş CORS ayarları
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+};
+app.use(cors(corsOptions));
+
+// Render için keep-alive desteği
+app.use((req, res, next) => {
+  res.setHeader('Connection', 'keep-alive');
+  next();
+});
+
 app.use(bodyParser.json());
 
 const messages = [];
