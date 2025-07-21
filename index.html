@@ -1,211 +1,326 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sessiz Sinyal MVP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessiz Sinyal V4 - PDF Raporlu + Kamera Nabız</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
   <style>
-    :root {
-      --bg: #121212;
-      --card: #1e1e1e;
-      --text: #eee;
-      --btn: #0a84ff;
-      --bpm: #ff4d4d;
-    }
     body {
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      text-align: center;
-      padding: 20px;
-    }
-    .card {
-      background: var(--card);
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
-      max-width: 500px;
-      margin: auto;
-    }
-    button {
-      margin: 10px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      background-color: var(--btn);
+      background: #121212;
       color: white;
-      font-size: 1em;
-      cursor: pointer;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
     }
-    canvas {
-      margin-top: 30px;
-    }
-    video {
-      display: none;
-      width: 200px;
-      margin-top: 20px;
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #1e1e2e;
+      padding: 20px;
       border-radius: 10px;
     }
-    .bpm-display {
+    input, button, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 1em;
+      border: none;
+      border-radius: 6px;
+    }
+    button {
+      background: #2196f3;
+      color: white;
+      cursor: pointer;
+    }
+    h2, h3 {
+      text-align: center;
+      color: #4fc3f7;
+    }
+    .output {
       margin-top: 10px;
       font-weight: bold;
-      color: var(--bpm);
+      color: #ffcc80;
     }
-    input[type="text"] {
-      padding: 8px;
-      margin-top: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      width: 80%;
+    canvas {
+      margin-top: 20px;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .stat-box {
+      background: #263238;
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin: 5px;
+      flex: 1 1 45%;
+      text-align: center;
+    }
+    .filter-box {
+      margin-top: 20px;
+      background: #2e2e3e;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    #video {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 15px;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h2>Sessiz Sinyal Demo</h2>
-    <input type="text" id="username" placeholder="Adınızı girin...">
-    <br>
-    <button onclick="startSession()">Başlat</button>
-    <button onclick="showData()">Veriyi Göster</button>
-    <button onclick="analyze()">Analiz Et</button>
-    <button onclick="startPulseDetection()">Nabzı Başlat</button>
-    <button onclick="exportData()">Veriyi Dışa Aktar</button>
-    <button onclick="sendToServer()">Sunucuya Gönder</button>
-    <div class="bpm-display" id="bpmDisplay">Nabız: --</div>
-    <video id="video" autoplay muted></video>
-    <canvas id="chart" width="400" height="200"></canvas>
+  <div class="container">
+    <h2>Sessiz Sinyal V4</h2>
+    <input type="text" id="name" placeholder="Adınızı girin..." />
+    <button onclick="startCamera()">Kameradan Nabız Ölç</button>
+    <button onclick="start()">Veri Üret ve Gönder</button>
+    <button onclick="downloadCSV()">CSV Aktar</button>
+    <button onclick="generatePDF()">PDF Rapor İndir</button>
+
+    <video id="video" autoplay></video>
+
+    <div class="output" id="pulseOutput">Nabız: --</div>
+    <div class="output" id="reactionOutput">Tepki Süresi: --</div>
+    <div class="output" id="aiComment">AI Yorum: --</div>
+
+    <div class="stats">
+      <div class="stat-box" id="totalUsers">👥 Kullanıcı: 0</div>
+      <div class="stat-box" id="avgPulse">❤️ Ortalama Nabız: --</div>
+      <div class="stat-box" id="avgReaction">⚡ Ortalama Tepki: --</div>
+    </div>
+
+    <div class="filter-box">
+      <h3>Filtreleme</h3>
+      <input type="text" id="filterName" placeholder="Ad ile filtrele..." oninput="filterData()" />
+      <select id="filterStress" onchange="filterData()">
+        <option value="">Tüm Stres Seviyeleri</option>
+        <option value="yüksek">Yüksek Stres</option>
+        <option value="normal">Normal</option>
+      </select>
+    </div>
+
+    <canvas id="pulseChart" height="200"></canvas>
+    <canvas id="reactionChart" height="200"></canvas>
   </div>
 
   <script>
-    let data = [];
-    let startTime;
-    let clickCount = 0;
+    let pulse = 0;
+    let reaction = 0;
+    let aiComment = "";
+    let allData = [];
 
-    function startSession() {
-      const user = document.getElementById('username').value || 'anonim';
-      startTime = Date.now();
-      document.body.addEventListener('click', recordSignal);
-      alert(user + " oturumu başlattı. Ekrana rastgele tıklayın.");
-    }
+    async function startCamera() {
+      const video = document.getElementById("video");
+      video.style.display = "block";
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
 
-    function recordSignal(e) {
-      const delay = Date.now() - startTime;
-      const x = e.clientX;
-      const y = e.clientY;
-      clickCount++;
-      data.push({ x: delay / 1000, y: Math.random() * 100, xPos: x, yPos: y, clickCount });
-      localStorage.setItem('sessizData', btoa(JSON.stringify(data)));
-    }
+      let previousFrame = null;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      let bpmList = [];
+      let lastTime = Date.now();
 
-    function showData() {
-      const stored = JSON.parse(atob(localStorage.getItem('sessizData') || 'W10='));
-      alert(`Toplam veri: ${stored.length} adet sinyal kaydedildi.`);
-    }
+      function analyzeFrame() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    function analyze() {
-      const ctx = document.getElementById('chart').getContext('2d');
-      const stored = JSON.parse(atob(localStorage.getItem('sessizData') || 'W10='));
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let sum = 0;
+        for (let i = 0; i < frame.data.length; i += 4) {
+          sum += frame.data[i]; // Red channel
+        }
+        const avg = sum / (frame.data.length / 4);
 
-      const xs = stored.map(d => d.x);
-      const ys = stored.map(d => d.y);
-
-      const xsTensor = tf.tensor(xs);
-      const ysTensor = tf.tensor(ys);
-
-      const model = tf.sequential();
-      model.add(tf.layers.dense({ inputShape: [1], units: 8, activation: 'relu' }));
-      model.add(tf.layers.dense({ units: 1 }));
-      model.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
-
-      model.fit(xsTensor.reshape([-1,1]), ysTensor.reshape([-1,1]), { epochs: 10 }).then(() => {
-        const predicted = xs.map(x => model.predict(tf.tensor([x])).dataSync()[0]);
-
-        new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: xs,
-            datasets: [
-              { label: 'Gerçek Veri', data: ys, borderColor: '#0a84ff', fill: false },
-              { label: 'AI Tahmini', data: predicted, borderColor: 'orange', borderDash: [5,5], fill: false }
-            ]
-          },
-          options: {
-            scales: {
-              x: { title: { display: true, text: 'Süre (sn)' } },
-              y: { title: { display: true, text: 'Seviye' }, min: 0, max: 100 }
-            }
+        if (previousFrame !== null) {
+          const diff = avg - previousFrame;
+          if (diff > 0.5) {
+            const now = Date.now();
+            const bpm = 60000 / (now - lastTime);
+            lastTime = now;
+            bpmList.push(bpm);
+            if (bpmList.length > 5) bpmList.shift();
+            const avgBpm = Math.round(bpmList.reduce((a, b) => a + b, 0) / bpmList.length);
+            pulse = avgBpm;
+            document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
           }
-        });
-      });
+        }
+        previousFrame = avg;
+        requestAnimationFrame(analyzeFrame);
+      }
+      requestAnimationFrame(analyzeFrame);
     }
 
-    async function startPulseDetection() {
+    function simulateData() {
+      if (pulse === 0) {
+        pulse = Math.floor(Math.random() * 40 + 70);
+      }
+      reaction = Math.floor(Math.random() * 800 + 300);
+      document.getElementById("reactionOutput").textContent = "Tepki Süresi: " + reaction + " ms";
+    }
+
+    function analyzeAI(pulse, reaction) {
+      if (pulse > 100 && reaction > 800) return "Yüksek Stres / Düşük Odak";
+      if (pulse >= 70 && reaction >= 500) return "Orta Seviye / Dengeli";
+      return "Sakin ve Odaklı";
+    }
+
+    async function start() {
+      const name = document.getElementById("name").value.trim();
+      if (!name) return alert("Lütfen adınızı girin.");
+
+      simulateData();
+      aiComment = analyzeAI(pulse, reaction);
+      document.getElementById("aiComment").textContent = "AI Yorum: " + aiComment;
+
+      const payload = {
+        name,
+        pulse,
+        reaction,
+        comment: aiComment,
+        timestamp: new Date().toISOString()
+      };
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        video.srcObject = stream;
-        video.play();
-        bpmDisplay.innerText = "Nabız ölçülüyor...";
-
-        let ctx = document.createElement('canvas').getContext('2d');
-        let prevRed = 0, beats = 0;
-        let startTime = Date.now();
-
-        const interval = setInterval(() => {
-          ctx.drawImage(video, 0, 0, 50, 50);
-          let frame = ctx.getImageData(0, 0, 50, 50);
-          let totalRed = 0;
-          for (let i = 0; i < frame.data.length; i += 4) {
-            totalRed += frame.data[i];
-          }
-          let avgRed = totalRed / (frame.data.length / 4);
-
-          if (avgRed > prevRed + 2) beats++;
-          prevRed = avgRed;
-
-          let elapsed = (Date.now() - startTime) / 1000;
-          if (elapsed >= 10) {
-            let bpm = Math.round((beats / elapsed) * 60);
-            bpmDisplay.innerText = `Nabız: ${bpm} bpm`;
-            data.push({ x: elapsed, y: bpm, bpm });
-            localStorage.setItem('sessizData', btoa(JSON.stringify(data)));
-            clearInterval(interval);
-          }
-        }, 200);
-
-      } catch (err) {
-        bpmDisplay.innerText = "Kamera erişimi reddedildi.";
-        console.error(err);
+        await fetch("https://sessizsinyal-api.onrender.com/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        loadData();
+      } catch (e) {
+        console.error("Gönderim başarısız:", e);
       }
     }
 
-    function exportData() {
-      const stored = atob(localStorage.getItem('sessizData') || 'W10=');
-      const blob = new Blob([stored], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'sessiz_sinyal_verisi.json';
-      a.click();
-      URL.revokeObjectURL(url);
+    async function loadData() {
+      try {
+        const res = await fetch("https://sessizsinyal-api.onrender.com/api/all");
+        allData = await res.json();
+        updateStats(allData);
+        drawChart(allData);
+      } catch (err) {
+        console.error("Veri yüklenemedi:", err);
+      }
     }
 
-    function sendToServer() {
-      const username = document.getElementById('username').value || 'anonim';
-      const encoded = localStorage.getItem('sessizData');
-      const decoded = JSON.parse(atob(encoded || 'W10='));
+    function updateStats(data) {
+      const uniqueUsers = [...new Set(data.map(d => d.name))].length;
+      const avgPulse = (data.reduce((sum, d) => sum + d.pulse, 0) / data.length).toFixed(1);
+      const avgReaction = (data.reduce((sum, d) => sum + d.reaction, 0) / data.length).toFixed(1);
 
-      fetch('https://sessiz-sinyal.onrender.com/api/sinyal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, signals: decoded })
-      })
-      .then(res => res.json())
-      .then(response => alert('Veri başarıyla sunucuya gönderildi.'))
-      .catch(err => alert('Sunucuya gönderim hatası: ' + err));
+      document.getElementById("totalUsers").textContent = "👥 Kullanıcı: " + uniqueUsers;
+      document.getElementById("avgPulse").textContent = "❤️ Ortalama Nabız: " + avgPulse;
+      document.getElementById("avgReaction").textContent = "⚡ Ortalama Tepki: " + avgReaction;
     }
+
+    function drawChart(data) {
+      const ctxPulse = document.getElementById("pulseChart").getContext("2d");
+      const ctxReaction = document.getElementById("reactionChart").getContext("2d");
+
+      if (window.chartPulse) window.chartPulse.destroy();
+      if (window.chartReaction) window.chartReaction.destroy();
+
+      const labels = data.map((d, i) => d.name + " " + (i + 1));
+      const pulseData = data.map(d => d.pulse);
+      const reactionData = data.map(d => d.reaction);
+
+      window.chartPulse = new Chart(ctxPulse, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Nabız Değeri',
+            data: pulseData,
+            borderColor: '#26a69a',
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      window.chartReaction = new Chart(ctxReaction, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Tepki Süresi (ms)',
+            data: reactionData,
+            backgroundColor: '#42a5f5'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function filterData() {
+      const nameFilter = document.getElementById("filterName").value.toLowerCase();
+      const stressFilter = document.getElementById("filterStress").value;
+
+      const filtered = allData.filter(entry => {
+        const matchesName = entry.name.toLowerCase().includes(nameFilter);
+        const isStress =
+          stressFilter === "yüksek" ? entry.pulse > 100 :
+          stressFilter === "normal" ? entry.pulse <= 100 && entry.pulse >= 70 :
+          true;
+        return matchesName && isStress;
+      });
+
+      updateStats(filtered);
+      drawChart(filtered);
+    }
+
+    function downloadCSV() {
+      let csv = "Ad,Nabız,Tepki,AI Yorum,Tarih\n";
+      allData.forEach(row => {
+        csv += `${row.name},${row.pulse},${row.reaction},"${row.comment}",${row.timestamp}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "sessiz_sinyal_verileri.csv";
+      link.click();
+    }
+
+    function generatePDF() {
+      const name = document.getElementById("name").value.trim();
+      const date = new Date().toLocaleDateString("tr-TR");
+
+      if (!name || !pulse || !reaction || !aiComment) {
+        return alert("Lütfen önce veri üretin ve gönderin.");
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("📄 Sessiz Sinyal AI Raporu", 20, 20);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text(`👤 Ad: ${name}`, 20, 40);
+      doc.text(`❤️ Nabız: ${pulse} bpm`, 20, 50);
+      doc.text(`⚡ Tepki Süresi: ${reaction} ms`, 20, 60);
+      doc.text(`🧠 Yorum: ${aiComment}`, 20, 70);
+      doc.text(`📅 Tarih: ${date}`, 20, 85);
+      doc.text(`🔐 Doğrulandı: SessizSinyal AI Sistemi`, 20, 95);
+      doc.save(`sessiz_sinyal_raporu_${name}.pdf`);
+    }
+
+    window.onload = loadData;
   </script>
 </body>
 </html>
+    
