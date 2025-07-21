@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sessiz Sinyal V4 - PDF Raporlu + Kamera Nabız</title>
+  <title>Sessiz Sinyal V4 - Gelişmiş Nabız Ölçüm</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -125,25 +125,25 @@
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let sum = 0;
         for (let i = 0; i < frame.data.length; i += 4) {
           sum += frame.data[i];
         }
         const avg = sum / (frame.data.length / 4);
-
         if (previousAvg !== null) {
           const diff = avg - previousAvg;
-          if (Math.abs(diff) > 0.5) {
+          if (diff > 1) {
             const now = Date.now();
             const bpm = 60000 / (now - lastTime);
             lastTime = now;
-            bpmList.push(bpm);
-            if (bpmList.length > 5) bpmList.shift();
-            const avgBpm = Math.round(bpmList.reduce((a, b) => a + b, 0) / bpmList.length);
-            pulse = avgBpm;
-            document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
+            if (bpm > 40 && bpm < 180) {
+              bpmList.push(bpm);
+              if (bpmList.length > 5) bpmList.shift();
+              const avgBpm = Math.round(bpmList.reduce((a, b) => a + b, 0) / bpmList.length);
+              pulse = avgBpm;
+              document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
+            }
           }
         }
         previousAvg = avg;
@@ -257,10 +257,10 @@
       const doc = new jsPDF();
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("\ud83d\udcc4 Sessiz Sinyal AI Raporu", 20, 20);
+      doc.text("📄 Sessiz Sinyal AI Raporu", 20, 20);
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text(`\ud83d\udc64 Ad: ${name}`, 20, 40);
+      doc.text(`👤 Ad: ${name}`, 20, 40);
       doc.text(`❤️ Nabız: ${pulse} bpm`, 20, 50);
       doc.text(`⚡ Tepki Süresi: ${reaction} ms`, 20, 60);
       doc.text(`🧠 Yorum: ${aiComment}`, 20, 70);
@@ -273,3 +273,4 @@
   </script>
 </body>
 </html>
+    
