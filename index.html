@@ -3,277 +3,146 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sessiz Sinyal V4 - PDF Raporlu + Kamera Nabız</title>
+  <title>Sessiz Sinyal V4 - EEG + Duygu Tanıma</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
   <style>
-    body {
-      background: #121212;
-      color: white;
-      font-family: 'Segoe UI', sans-serif;
-      padding: 20px;
-    }
-    .container {
-      max-width: 800px;
-      margin: auto;
-      background: #1e1e2e;
-      padding: 20px;
-      border-radius: 10px;
-    }
-    input, button, select {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 1em;
-      border: none;
-      border-radius: 6px;
-    }
-    button {
-      background: #2196f3;
-      color: white;
-      cursor: pointer;
-    }
-    h2, h3 {
-      text-align: center;
-      color: #4fc3f7;
-    }
-    .output {
-      margin-top: 10px;
-      font-weight: bold;
-      color: #ffcc80;
-    }
-    canvas {
-      margin-top: 20px;
-    }
-    .stats {
-      display: flex;
-      justify-content: space-around;
-      flex-wrap: wrap;
-      margin-top: 20px;
-    }
-    .stat-box {
-      background: #263238;
-      padding: 10px 15px;
-      border-radius: 8px;
-      margin: 5px;
-      flex: 1 1 45%;
-      text-align: center;
-    }
-    .filter-box {
-      margin-top: 20px;
-      background: #2e2e3e;
-      padding: 15px;
-      border-radius: 8px;
-    }
-    #video {
-      width: 100%;
-      border-radius: 10px;
-      margin-top: 15px;
-      display: none;
-    }
+    body { background: #121212; color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; }
+    .container { max-width: 800px; margin: auto; background: #1e1e2e; padding: 20px; border-radius: 10px; }
+    input, button, select { width: 100%; padding: 10px; margin-top: 10px; font-size: 1em; border: none; border-radius: 6px; }
+    button { background: #2196f3; color: white; cursor: pointer; }
+    h2, h3 { text-align: center; color: #4fc3f7; }
+    .output { margin-top: 10px; font-weight: bold; color: #ffcc80; }
+    canvas { margin-top: 20px; }
+    .stats { display: flex; justify-content: space-around; flex-wrap: wrap; margin-top: 20px; }
+    .stat-box { background: #263238; padding: 10px 15px; border-radius: 8px; margin: 5px; flex: 1 1 45%; text-align: center; }
+    .filter-box { margin-top: 20px; background: #2e2e3e; padding: 15px; border-radius: 8px; }
+    #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Sessiz Sinyal V4</h2>
-    <input type="text" id="name" placeholder="Adınızı girin..." />
-    <button onclick="startCamera()">Kameradan Nabız Ölç</button>
-    <button onclick="start()">Veri Üret ve Gönder</button>
-    <button onclick="downloadCSV()">CSV Aktar</button>
-    <button onclick="generatePDF()">PDF Rapor İndir</button>
-    <video id="video" autoplay></video>
-    <div class="output" id="pulseOutput">Nabız: --</div>
-    <div class="output" id="reactionOutput">Tepki Süresi: --</div>
-    <div class="output" id="aiComment">AI Yorum: --</div>
-    <div class="stats">
-      <div class="stat-box" id="totalUsers">👥 Kullanıcı: 0</div>
-      <div class="stat-box" id="avgPulse">❤️ Ortalama Nabız: --</div>
-      <div class="stat-box" id="avgReaction">⚡ Ortalama Tepki: --</div>
-    </div>
-    <div class="filter-box">
-      <h3>Filtreleme</h3>
-      <input type="text" id="filterName" placeholder="Ad ile filtrele..." oninput="filterData()" />
-      <select id="filterStress" onchange="filterData()">
-        <option value="">Tüm Stres Seviyeleri</option>
-        <option value="yüksek">Yüksek Stres</option>
-        <option value="normal">Normal</option>
-      </select>
-    </div>
-    <canvas id="pulseChart" height="200"></canvas>
-    <canvas id="reactionChart" height="200"></canvas>
+<div class="container">
+  <h2>Sessiz Sinyal V4</h2>
+  <input type="text" id="name" placeholder="Adınızı girin..." />
+  <button onclick="startCamera()">Kameradan Nabız Ölç + Yüz Duygu Tanıma</button>
+  <button onclick="connectEEG()">🧠 EEG Cihazına Bağlan</button>
+  <button onclick="start()">Veri Üret ve Gönder</button>
+  <button onclick="downloadCSV()">CSV Aktar</button>
+  <button onclick="generatePDF()">PDF Rapor İndir</button>
+  <video id="video" autoplay muted playsinline></video>
+  <div class="output" id="pulseOutput">Nabız: --</div>
+  <div class="output" id="emotionOutput">Duygu: --</div>
+  <div class="output" id="eegOutput">EEG: --</div>
+  <div class="output" id="reactionOutput">Tepki Süresi: --</div>
+  <div class="output" id="aiComment">AI Yorum: --</div>
+  <div class="stats">
+    <div class="stat-box" id="totalUsers">👥 Kullanıcı: 0</div>
+    <div class="stat-box" id="avgPulse">❤️ Ortalama Nabız: --</div>
+    <div class="stat-box" id="avgReaction">⚡ Ortalama Tepki: --</div>
   </div>
+  <div class="filter-box">
+    <h3>Filtreleme</h3>
+    <input type="text" id="filterName" placeholder="Ad ile filtrele..." oninput="filterData()" />
+    <select id="filterStress" onchange="filterData()">
+      <option value="">Tüm Stres Seviyeleri</option>
+      <option value="yüksek">Yüksek Stres</option>
+      <option value="normal">Normal</option>
+    </select>
+  </div>
+  <canvas id="pulseChart" height="200"></canvas>
+  <canvas id="reactionChart" height="200"></canvas>
+</div>
+<script>
+let pulse = 0, reaction = 0, aiComment = "", allData = [], detectedEmotion = "", eegAttention = 0;
 
-  <script>
-    let pulse = 0;
-    let reaction = 0;
-    let aiComment = "";
-    let allData = [];
+async function startCamera() {
+  const video = document.getElementById("video");
+  video.style.display = "block";
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
+  video.srcObject = stream;
 
-    async function startCamera() {
-      const video = document.getElementById("video");
-      video.style.display = "block";
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
-      video.srcObject = stream;
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+    faceapi.nets.faceExpressionNet.loadFromUri('/models')
+  ]);
 
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      let bpmList = [];
-      let previousAvg = null;
-      let lastTime = Date.now();
-      let frameCount = 0;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  let bpmList = [], previousAvg = null, lastTime = Date.now(), frameCount = 0;
 
-      function analyzeFrame() {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  async function analyzeFrame() {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        let sum = 0;
-        for (let i = 0; i < frame.data.length; i += 4) {
-          sum += frame.data[i]; // Red channel
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let sum = 0;
+    for (let i = 0; i < frame.data.length; i += 4) sum += frame.data[i];
+    const avg = sum / (frame.data.length / 4);
+
+    if (previousAvg !== null && frameCount % 5 === 0) {
+      const diff = avg - previousAvg;
+      if (diff > 0.5) {
+        const now = Date.now();
+        const bpm = 60000 / (now - lastTime);
+        lastTime = now;
+        bpmList.push(bpm);
+        if (bpmList.length > 5) bpmList.shift();
+        const avgBpm = Math.round(bpmList.reduce((a, b) => a + b, 0) / bpmList.length);
+        if (avgBpm >= 40 && avgBpm <= 180) {
+          pulse = avgBpm;
+          document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
         }
-        const avg = sum / (frame.data.length / 4);
-
-        if (previousAvg !== null && frameCount % 5 === 0) { // Reduce the calculation rate for stability
-          const diff = avg - previousAvg;
-          if (diff > 0.5) {
-            const now = Date.now();
-            const bpm = 60000 / (now - lastTime);
-            lastTime = now;
-            bpmList.push(bpm);
-            if (bpmList.length > 5) bpmList.shift();
-            const avgBpm = Math.round(bpmList.reduce((a, b) => a + b, 0) / bpmList.length);
-            if (avgBpm >= 40 && avgBpm <= 180) { // Realistic bpm range filter
-              pulse = avgBpm;
-              document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
-            }
-          }
-        }
-        previousAvg = avg;
-        frameCount++;
-        requestAnimationFrame(analyzeFrame);
-      }
-      requestAnimationFrame(analyzeFrame);
-    }
-
-    function simulateData() {
-      if (pulse === 0) pulse = Math.floor(Math.random() * 40 + 70);
-      reaction = Math.floor(Math.random() * 800 + 300);
-      document.getElementById("reactionOutput").textContent = "Tepki Süresi: " + reaction + " ms";
-    }
-
-    function analyzeAI(p, r) {
-      if (p > 100 && r > 800) return "Yüksek Stres / Düşük Odak";
-      if (p >= 70 && r >= 500) return "Orta Seviye / Dengeli";
-      return "Sakin ve Odaklı";
-    }
-
-    async function start() {
-      const name = document.getElementById("name").value.trim();
-      if (!name) return alert("Lütfen adınızı girin.");
-
-      simulateData();
-      aiComment = analyzeAI(pulse, reaction);
-      document.getElementById("aiComment").textContent = "AI Yorum: " + aiComment;
-
-      const payload = { name, pulse, reaction, comment: aiComment, timestamp: new Date().toISOString() };
-      try {
-        await fetch("https://sessizsinyal-api.onrender.com/api/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        loadData();
-      } catch (e) {
-        console.error("Gönderim başarısız:", e);
       }
     }
+    previousAvg = avg;
 
-    async function loadData() {
-      try {
-        const res = await fetch("https://sessizsinyal-api.onrender.com/api/all");
-        allData = await res.json();
-        updateStats(allData);
-        drawChart(allData);
-      } catch (e) {
-        console.error("Veri yüklenemedi:", e);
-      }
+    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+    if (detections && detections.expressions) {
+      const sorted = Object.entries(detections.expressions).sort((a, b) => b[1] - a[1]);
+      detectedEmotion = sorted[0][0];
+      document.getElementById("emotionOutput").textContent = "Duygu: " + detectedEmotion;
     }
 
-    function updateStats(data) {
-      const uniqueUsers = [...new Set(data.map(d => d.name))].length;
-      const avgPulse = (data.reduce((a, b) => a + b.pulse, 0) / data.length).toFixed(1);
-      const avgReaction = (data.reduce((a, b) => a + b.reaction, 0) / data.length).toFixed(1);
-      document.getElementById("totalUsers").textContent = "👥 Kullanıcı: " + uniqueUsers;
-      document.getElementById("avgPulse").textContent = "❤️ Ortalama Nabız: " + avgPulse;
-      document.getElementById("avgReaction").textContent = "⚡ Ortalama Tepki: " + avgReaction;
-    }
+    frameCount++;
+    requestAnimationFrame(analyzeFrame);
+  }
+  requestAnimationFrame(analyzeFrame);
+}
 
-    function drawChart(data) {
-      const ctxPulse = document.getElementById("pulseChart").getContext("2d");
-      const ctxReaction = document.getElementById("reactionChart").getContext("2d");
-      if (window.chartPulse) window.chartPulse.destroy();
-      if (window.chartReaction) window.chartReaction.destroy();
-      const labels = data.map((d, i) => d.name + " " + (i + 1));
-      const pulseData = data.map(d => d.pulse);
-      const reactionData = data.map(d => d.reaction);
-      window.chartPulse = new Chart(ctxPulse, {
-        type: 'line', data: { labels, datasets: [{ label: 'Nabız', data: pulseData, borderColor: '#4fc3f7', fill: false }] },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-      });
-      window.chartReaction = new Chart(ctxReaction, {
-        type: 'bar', data: { labels, datasets: [{ label: 'Tepki', data: reactionData, backgroundColor: '#ffca28' }] },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-      });
-    }
+async function connectEEG() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'MindWave' }],
+      optionalServices: [0xffe0]
+    });
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(0xffe0);
+    const characteristic = await service.getCharacteristic(0xffe1);
 
-    function filterData() {
-      const nameFilter = document.getElementById("filterName").value.toLowerCase();
-      const stressFilter = document.getElementById("filterStress").value;
-      const filtered = allData.filter(entry => {
-        const matchName = entry.name.toLowerCase().includes(nameFilter);
-        const matchStress =
-          stressFilter === "yüksek" ? entry.pulse > 100 :
-          stressFilter === "normal" ? entry.pulse <= 100 && entry.pulse >= 70 : true;
-        return matchName && matchStress;
-      });
-      updateStats(filtered);
-      drawChart(filtered);
-    }
+    characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged', (event) => {
+      const data = new Uint8Array(event.target.value.buffer);
+      parseEEGData(data);
+    });
 
-    function downloadCSV() {
-      let csv = "Ad,Nabız,Tepki,AI Yorum,Tarih\n";
-      allData.forEach(row => {
-        csv += `${row.name},${row.pulse},${row.reaction},"${row.comment}",${row.timestamp}\n`;
-      });
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "sessiz_sinyal_verileri.csv";
-      link.click();
-    }
+    console.log("EEG cihazına bağlandı.");
+  } catch (error) {
+    console.error("EEG bağlantı hatası:", error);
+    alert("EEG cihazına bağlanılamadı.");
+  }
+}
 
-    function generatePDF() {
-      const name = document.getElementById("name").value.trim();
-      const date = new Date().toLocaleDateString("tr-TR");
-      if (!name || !pulse || !reaction || !aiComment) return alert("Lütfen önce veri üretin ve gönderin.");
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text("📄 Sessiz Sinyal AI Raporu", 20, 20);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`👤 Ad: ${name}`, 20, 40);
-      doc.text(`❤️ Nabız: ${pulse} bpm`, 20, 50);
-      doc.text(`⚡ Tepki Süresi: ${reaction} ms`, 20, 60);
-      doc.text(`🧠 Yorum: ${aiComment}`, 20, 70);
-      doc.text(`📅 Tarih: ${date}`, 20, 85);
-      doc.text(`🔐 Doğrulandı: SessizSinyal AI Sistemi`, 20, 95);
-      doc.save(`sessiz_sinyal_raporu_${name}.pdf`);
+function parseEEGData(data) {
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] === 0x04 && data[i + 1] === 0x80) {
+      eegAttention = data[i + 2];
+      document.getElementById("eegOutput").textContent = "EEG: Attention " + eegAttention;
     }
-
-    window.onload = loadData;
-  </script>
+  }
+}
+</script>
 </body>
 </html>
