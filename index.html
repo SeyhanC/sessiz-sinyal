@@ -81,19 +81,15 @@
     <button onclick="start()">Veri Üret ve Gönder</button>
     <button onclick="downloadCSV()">CSV Aktar</button>
     <button onclick="generatePDF()">PDF Rapor İndir</button>
-
     <video id="video" autoplay></video>
-
     <div class="output" id="pulseOutput">Nabız: --</div>
     <div class="output" id="reactionOutput">Tepki Süresi: --</div>
     <div class="output" id="aiComment">AI Yorum: --</div>
-
     <div class="stats">
       <div class="stat-box" id="totalUsers">👥 Kullanıcı: 0</div>
       <div class="stat-box" id="avgPulse">❤️ Ortalama Nabız: --</div>
       <div class="stat-box" id="avgReaction">⚡ Ortalama Tepki: --</div>
     </div>
-
     <div class="filter-box">
       <h3>Filtreleme</h3>
       <input type="text" id="filterName" placeholder="Ad ile filtrele..." oninput="filterData()" />
@@ -103,7 +99,6 @@
         <option value="normal">Normal</option>
       </select>
     </div>
-
     <canvas id="pulseChart" height="200"></canvas>
     <canvas id="reactionChart" height="200"></canvas>
   </div>
@@ -120,10 +115,10 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       video.srcObject = stream;
 
-      let previousFrame = null;
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       let bpmList = [];
+      let previousAvg = null;
       let lastTime = Date.now();
 
       function analyzeFrame() {
@@ -134,13 +129,13 @@
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let sum = 0;
         for (let i = 0; i < frame.data.length; i += 4) {
-          sum += frame.data[i]; // Red channel
+          sum += frame.data[i]; // Red
         }
         const avg = sum / (frame.data.length / 4);
 
-        if (previousFrame !== null) {
-          const diff = avg - previousFrame;
-          if (diff > 0.5) {
+        if (previousAvg !== null) {
+          const diff = avg - previousAvg;
+          if (diff > 1) {
             const now = Date.now();
             const bpm = 60000 / (now - lastTime);
             lastTime = now;
@@ -151,23 +146,21 @@
             document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
           }
         }
-        previousFrame = avg;
+        previousAvg = avg;
         requestAnimationFrame(analyzeFrame);
       }
       requestAnimationFrame(analyzeFrame);
     }
 
     function simulateData() {
-      if (pulse === 0) {
-        pulse = Math.floor(Math.random() * 40 + 70);
-      }
+      if (pulse === 0) pulse = Math.floor(Math.random() * 40 + 70);
       reaction = Math.floor(Math.random() * 800 + 300);
       document.getElementById("reactionOutput").textContent = "Tepki Süresi: " + reaction + " ms";
     }
 
-    function analyzeAI(pulse, reaction) {
-      if (pulse > 100 && reaction > 800) return "Yüksek Stres / Düşük Odak";
-      if (pulse >= 70 && reaction >= 500) return "Orta Seviye / Dengeli";
+    function analyzeAI(p, r) {
+      if (p > 100 && r > 800) return "Yüksek Stres / Düşük Odak";
+      if (p >= 70 && r >= 500) return "Orta Seviye / Dengeli";
       return "Sakin ve Odaklı";
     }
 
@@ -179,14 +172,7 @@
       aiComment = analyzeAI(pulse, reaction);
       document.getElementById("aiComment").textContent = "AI Yorum: " + aiComment;
 
-      const payload = {
-        name,
-        pulse,
-        reaction,
-        comment: aiComment,
-        timestamp: new Date().toISOString()
-      };
-
+      const payload = { name, pulse, reaction, comment: aiComment, timestamp: new Date().toISOString() };
       try {
         await fetch("https://sessizsinyal-api.onrender.com/api/save", {
           method: "POST",
@@ -205,16 +191,15 @@
         allData = await res.json();
         updateStats(allData);
         drawChart(allData);
-      } catch (err) {
-        console.error("Veri yüklenemedi:", err);
+      } catch (e) {
+        console.error("Veri yüklenemedi:", e);
       }
     }
 
     function updateStats(data) {
       const uniqueUsers = [...new Set(data.map(d => d.name))].length;
-      const avgPulse = (data.reduce((sum, d) => sum + d.pulse, 0) / data.length).toFixed(1);
-      const avgReaction = (data.reduce((sum, d) => sum + d.reaction, 0) / data.length).toFixed(1);
-
+      const avgPulse = (data.reduce((a, b) => a + b.pulse, 0) / data.length).toFixed(1);
+      const avgReaction = (data.reduce((a, b) => a + b.reaction, 0) / data.length).toFixed(1);
       document.getElementById("totalUsers").textContent = "👥 Kullanıcı: " + uniqueUsers;
       document.getElementById("avgPulse").textContent = "❤️ Ortalama Nabız: " + avgPulse;
       document.getElementById("avgReaction").textContent = "⚡ Ortalama Tepki: " + avgReaction;
@@ -223,61 +208,31 @@
     function drawChart(data) {
       const ctxPulse = document.getElementById("pulseChart").getContext("2d");
       const ctxReaction = document.getElementById("reactionChart").getContext("2d");
-
       if (window.chartPulse) window.chartPulse.destroy();
       if (window.chartReaction) window.chartReaction.destroy();
-
       const labels = data.map((d, i) => d.name + " " + (i + 1));
       const pulseData = data.map(d => d.pulse);
       const reactionData = data.map(d => d.reaction);
-
       window.chartPulse = new Chart(ctxPulse, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Nabız Değeri',
-            data: pulseData,
-            borderColor: '#26a69a',
-            fill: false
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: { y: { beginAtZero: true } }
-        }
+        type: 'line', data: { labels, datasets: [{ label: 'Nabız', data: pulseData, borderColor: '#4fc3f7', fill: false }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
       });
-
       window.chartReaction = new Chart(ctxReaction, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Tepki Süresi (ms)',
-            data: reactionData,
-            backgroundColor: '#42a5f5'
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: { y: { beginAtZero: true } }
-        }
+        type: 'bar', data: { labels, datasets: [{ label: 'Tepki', data: reactionData, backgroundColor: '#ffca28' }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
       });
     }
 
     function filterData() {
       const nameFilter = document.getElementById("filterName").value.toLowerCase();
       const stressFilter = document.getElementById("filterStress").value;
-
       const filtered = allData.filter(entry => {
-        const matchesName = entry.name.toLowerCase().includes(nameFilter);
-        const isStress =
+        const matchName = entry.name.toLowerCase().includes(nameFilter);
+        const matchStress =
           stressFilter === "yüksek" ? entry.pulse > 100 :
-          stressFilter === "normal" ? entry.pulse <= 100 && entry.pulse >= 70 :
-          true;
-        return matchesName && isStress;
+          stressFilter === "normal" ? entry.pulse <= 100 && entry.pulse >= 70 : true;
+        return matchName && matchStress;
       });
-
       updateStats(filtered);
       drawChart(filtered);
     }
@@ -287,7 +242,6 @@
       allData.forEach(row => {
         csv += `${row.name},${row.pulse},${row.reaction},"${row.comment}",${row.timestamp}\n`;
       });
-
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -298,11 +252,7 @@
     function generatePDF() {
       const name = document.getElementById("name").value.trim();
       const date = new Date().toLocaleDateString("tr-TR");
-
-      if (!name || !pulse || !reaction || !aiComment) {
-        return alert("Lütfen önce veri üretin ve gönderin.");
-      }
-
+      if (!name || !pulse || !reaction || !aiComment) return alert("Lütfen önce veri üretin ve gönderin.");
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       doc.setFont("helvetica", "bold");
@@ -323,4 +273,3 @@
   </script>
 </body>
 </html>
-    
