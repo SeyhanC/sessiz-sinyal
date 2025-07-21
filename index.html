@@ -112,7 +112,7 @@
     async function startCamera() {
       const video = document.getElementById("video");
       video.style.display = "block";
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
       video.srcObject = stream;
 
       const canvas = document.createElement("canvas");
@@ -129,13 +129,13 @@
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let sum = 0;
         for (let i = 0; i < frame.data.length; i += 4) {
-          sum += frame.data[i]; // Red
+          sum += frame.data[i];
         }
         const avg = sum / (frame.data.length / 4);
 
         if (previousAvg !== null) {
           const diff = avg - previousAvg;
-          if (diff > 1) {
+          if (Math.abs(diff) > 0.5) {
             const now = Date.now();
             const bpm = 60000 / (now - lastTime);
             lastTime = now;
@@ -257,10 +257,10 @@
       const doc = new jsPDF();
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("📄 Sessiz Sinyal AI Raporu", 20, 20);
+      doc.text("\ud83d\udcc4 Sessiz Sinyal AI Raporu", 20, 20);
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text(`👤 Ad: ${name}`, 20, 40);
+      doc.text(`\ud83d\udc64 Ad: ${name}`, 20, 40);
       doc.text(`❤️ Nabız: ${pulse} bpm`, 20, 50);
       doc.text(`⚡ Tepki Süresi: ${reaction} ms`, 20, 60);
       doc.text(`🧠 Yorum: ${aiComment}`, 20, 70);
