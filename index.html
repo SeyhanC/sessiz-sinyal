@@ -2,147 +2,101 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sessiz Sinyal V4 - EEG + Duygu Tanıma</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📡 Sessiz Sinyal Gönder</title>
   <style>
-    body { background: #121212; color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; }
-    .container { max-width: 800px; margin: auto; background: #1e1e2e; padding: 20px; border-radius: 10px; }
-    input, button, select { width: 100%; padding: 10px; margin-top: 10px; font-size: 1em; border: none; border-radius: 6px; }
-    button { background: #2196f3; color: white; cursor: pointer; }
-    h2, h3 { text-align: center; color: #4fc3f7; }
-    .output { margin-top: 10px; font-weight: bold; color: #ffcc80; }
-    canvas { margin-top: 20px; }
-    .stats { display: flex; justify-content: space-around; flex-wrap: wrap; margin-top: 20px; }
-    .stat-box { background: #263238; padding: 10px 15px; border-radius: 8px; margin: 5px; flex: 1 1 45%; text-align: center; }
-    .filter-box { margin-top: 20px; background: #2e2e3e; padding: 15px; border-radius: 8px; }
-    #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; }
+    body {
+      background-color: #0f172a;
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .form-container {
+      background-color: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      width: 90%;
+      max-width: 400px;
+    }
+    h2 {
+      text-align: center;
+      color: #60a5fa;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      margin-top: 5px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 6px;
+      background-color: #10b981;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-<div class="container">
-  <h2>Sessiz Sinyal V4</h2>
-  <input type="text" id="name" placeholder="Adınızı girin..." />
-  <button onclick="startCamera()">Kameradan Nabız Ölç + Yüz Duygu Tanıma</button>
-  <button onclick="connectEEG()">🧠 EEG Cihazına Bağlan</button>
-  <button onclick="start()">Veri Üret ve Gönder</button>
-  <button onclick="downloadCSV()">CSV Aktar</button>
-  <button onclick="generatePDF()">PDF Rapor İndir</button>
-  <video id="video" autoplay muted playsinline></video>
-  <div class="output" id="pulseOutput">Nabız: --</div>
-  <div class="output" id="emotionOutput">Duygu: --</div>
-  <div class="output" id="eegOutput">EEG: --</div>
-  <div class="output" id="reactionOutput">Tepki Süresi: --</div>
-  <div class="output" id="aiComment">AI Yorum: --</div>
-  <div class="stats">
-    <div class="stat-box" id="totalUsers">👥 Kullanıcı: 0</div>
-    <div class="stat-box" id="avgPulse">❤️ Ortalama Nabız: --</div>
-    <div class="stat-box" id="avgReaction">⚡ Ortalama Tepki: --</div>
+  <div class="form-container">
+    <h2>📡 Sessiz Sinyal Gönder</h2>
+    <label for="name">Ad Soyad</label>
+    <input type="text" id="name" placeholder="Adınızı yazınız" />
+    <label for="message">Mesajınız</label>
+    <textarea id="message" rows="4" placeholder="Mesajınızı yazınız"></textarea>
+    <button onclick="sendSignal()">Gönder</button>
+    <div class="result" id="result"></div>
   </div>
-  <div class="filter-box">
-    <h3>Filtreleme</h3>
-    <input type="text" id="filterName" placeholder="Ad ile filtrele..." oninput="filterData()" />
-    <select id="filterStress" onchange="filterData()">
-      <option value="">Tüm Stres Seviyeleri</option>
-      <option value="yüksek">Yüksek Stres</option>
-      <option value="normal">Normal</option>
-    </select>
-  </div>
-  <canvas id="pulseChart" height="200"></canvas>
-  <canvas id="reactionChart" height="200"></canvas>
-</div>
-<script>
-let pulse = 0, reaction = 0, aiComment = "", allData = [], detectedEmotion = "", eegAttention = 0;
 
-async function startCamera() {
-  const video = document.getElementById("video");
-  video.style.display = "block";
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
-  video.srcObject = stream;
+  <script>
+    const apiURL = "https://sinyal.onrender.com/api/sinyal";
 
-  await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-    faceapi.nets.faceExpressionNet.loadFromUri('/models')
-  ]);
+    async function sendSignal() {
+      const name = document.getElementById("name").value;
+      const message = document.getElementById("message").value;
+      const resultDiv = document.getElementById("result");
 
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  let bpmList = [], previousAvg = null, lastTime = Date.now(), frameCount = 0;
+      try {
+        const response = await fetch(apiURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, message })
+        });
 
-  async function analyzeFrame() {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const data = await response.json();
 
-    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let sum = 0;
-    for (let i = 0; i < frame.data.length; i += 4) sum += frame.data[i];
-    const avg = sum / (frame.data.length / 4);
-
-    if (previousAvg !== null && frameCount % 5 === 0) {
-      const diff = avg - previousAvg;
-      if (diff > 0.5) {
-        const now = Date.now();
-        const bpm = 60000 / (now - lastTime);
-        lastTime = now;
-        bpmList.push(bpm);
-        if (bpmList.length > 5) bpmList.shift();
-        const avgBpm = Math.round(bpmList.reduce((a, b) => a + b, 0) / bpmList.length);
-        if (avgBpm >= 40 && avgBpm <= 180) {
-          pulse = avgBpm;
-          document.getElementById("pulseOutput").textContent = "Nabız: " + avgBpm + " (kamera)";
+        if (response.ok) {
+          resultDiv.style.color = "lightgreen";
+          resultDiv.textContent = "✅ " + data.message;
+        } else {
+          resultDiv.style.color = "red";
+          resultDiv.textContent = "❌ Hata: " + (data.message || "Bilinmeyen hata");
         }
+      } catch (error) {
+        resultDiv.style.color = "red";
+        resultDiv.textContent = "❌ Bağlantı hatası: " + error.message;
       }
     }
-    previousAvg = avg;
-
-    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
-    if (detections && detections.expressions) {
-      const sorted = Object.entries(detections.expressions).sort((a, b) => b[1] - a[1]);
-      detectedEmotion = sorted[0][0];
-      document.getElementById("emotionOutput").textContent = "Duygu: " + detectedEmotion;
-    }
-
-    frameCount++;
-    requestAnimationFrame(analyzeFrame);
-  }
-  requestAnimationFrame(analyzeFrame);
-}
-
-async function connectEEG() {
-  try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'MindWave' }],
-      optionalServices: [0xffe0]
-    });
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(0xffe0);
-    const characteristic = await service.getCharacteristic(0xffe1);
-
-    characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', (event) => {
-      const data = new Uint8Array(event.target.value.buffer);
-      parseEEGData(data);
-    });
-
-    console.log("EEG cihazına bağlandı.");
-  } catch (error) {
-    console.error("EEG bağlantı hatası:", error);
-    alert("EEG cihazına bağlanılamadı.");
-  }
-}
-
-function parseEEGData(data) {
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] === 0x04 && data[i + 1] === 0x80) {
-      eegAttention = data[i + 2];
-      document.getElementById("eegOutput").textContent = "EEG: Attention " + eegAttention;
-    }
-  }
-}
-</script>
+  </script>
 </body>
 </html>
