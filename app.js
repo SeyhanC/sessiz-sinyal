@@ -1,24 +1,6 @@
-document.getElementById("sinyalForm").addEventListener("submit", function (e) {
-  e.preventDefault();
-  const name = document.getElementById("name").value;
-  const message = document.getElementById("message").value;
-  const status = document.getElementById("status");
+const dbUser = "seyhan40";
+const dbPass = "Seyhan_2025!"; // az önce belirlediğin şifre
 
-  fetch("https://sessiz-sinyal.onrender.com/api/sinyal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, message }),
-  })
-    .then((response) => {
-      if (!response.ok) throw new Error("Sunucu hatası");
-      return response.json();
-    })
-    .then((data) => {
-      status.textContent = "✅ Gönderildi!";
-      status.style.color = "lightgreen";
-    })
-    .catch((error) => {
-      status.textContent = "❌ Gönderilemedi: " + error.message;
-      status.style.color = "red";
-    });
-});
+mongoose.connect(`mongodb+srv://${dbUser}:${dbPass}@sessizcluster.g0istza.mongodb.net/sessizsinyal?retryWrites=true&w=majority&appName=SessizCluster`)
+  .then(() => console.log("✅ MongoDB bağlantısı başarılı"))
+  .catch((err) => console.error("❌ MongoDB bağlantı hatası:", err));
