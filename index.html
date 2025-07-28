@@ -69,34 +69,36 @@
   </div>
 
   <script>
-    const apiURL = "https://sinyal.onrender.com/api/sinyal";
+ 
+  const apiURL = "https://sessiz-sinyal.onrender.com/api/sinyal";  // ✅ DÜZELTİLDİ
 
-    async function sendSignal() {
-      const name = document.getElementById("name").value;
-      const message = document.getElementById("message").value;
-      const resultDiv = document.getElementById("result");
+  async function sendSignal() {
+    const name = document.getElementById("name").value;
+    const message = document.getElementById("message").value;
+    const resultDiv = document.getElementById("result");
 
-      try {
-        const response = await fetch(apiURL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, message })
-        });
+    try {
+      const response = await fetch(apiURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, message })
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (response.ok) {
-          resultDiv.style.color = "lightgreen";
-          resultDiv.textContent = "✅ " + data.message;
-        } else {
-          resultDiv.style.color = "red";
-          resultDiv.textContent = "❌ Hata: " + (data.message || "Bilinmeyen hata");
-        }
-      } catch (error) {
+      if (response.ok) {
+        resultDiv.style.color = "lightgreen";
+        resultDiv.textContent = "✅ " + data.message;
+      } else {
         resultDiv.style.color = "red";
-        resultDiv.textContent = "❌ Bağlantı hatası: " + error.message;
+        resultDiv.textContent = "❌ Hata: " + (data.message || "Bilinmeyen hata");
       }
+    } catch (error) {
+      resultDiv.style.color = "red";
+      resultDiv.textContent = "❌ Bağlantı hatası: " + error.message;
     }
-  </script>
+  }
+</script>
 </body>
 </html>
+    
